@@ -210,6 +210,8 @@ class File extends Node implements IFile {
 				}
 			}
 
+			$this->fileView->changeLock($this->path, ILockingProvider::LOCK_SHARED);
+
 			// since we skipped the view we need to scan and emit the hooks ourselves
 			$partStorage->getScanner()->scanFile($internalPath);
 
@@ -237,11 +239,10 @@ class File extends Node implements IFile {
 				}
 			}
 			$this->refreshInfo();
+			$this->fileView->unlockFile($this->path, ILockingProvider::LOCK_SHARED);
 		} catch (StorageNotAvailableException $e) {
 			throw new ServiceUnavailable("Failed to check file size: " . $e->getMessage());
 		}
-
-		$this->fileView->unlockFile($this->path, ILockingProvider::LOCK_EXCLUSIVE);
 
 		return '"' . $this->info->getEtag() . '"';
 	}

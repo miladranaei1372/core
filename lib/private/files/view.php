@@ -771,9 +771,12 @@ class View {
 				} else {
 					$result = $storage2->copyFromStorage($storage1, $internalPath1, $internalPath2);
 				}
+
+				$this->changeLock($path2, ILockingProvider::LOCK_SHARED);
+
 				$this->updater->update($path2);
 
-				$this->unlockFile($path2, ILockingProvider::LOCK_EXCLUSIVE);
+				$this->unlockFile($path2, ILockingProvider::LOCK_SHARED);
 				$this->unlockFile($path1, ILockingProvider::LOCK_SHARED);
 
 				if ($this->shouldEmitHooks() && $result !== false) {
@@ -996,6 +999,10 @@ class View {
 					throw $e;
 				}
 
+				if ((in_array('write', $hooks) || in_array('delete', $hooks)) && $operation !== 'fopen') {
+					$this->changeLock($path, ILockingProvider::LOCK_SHARED);
+				}
+
 				if (in_array('delete', $hooks) and $result) {
 					$this->updater->remove($path);
 				}
@@ -1014,12 +1021,8 @@ class View {
 							$this->unlockFile($path, ILockingProvider::LOCK_SHARED);
 						}
 					});
-				} else {
-					if (in_array('write', $hooks) || in_array('delete', $hooks)) {
-						$this->unlockFile($path, ILockingProvider::LOCK_EXCLUSIVE);
-					} else if (in_array('read', $hooks)) {
-						$this->unlockFile($path, ILockingProvider::LOCK_SHARED);
-					}
+				} else if (in_array('write', $hooks) || in_array('delete', $hooks) || in_array('read', $hooks)) {
+					$this->unlockFile($path, ILockingProvider::LOCK_SHARED);
 				}
 
 
@@ -1688,7 +1691,7 @@ class View {
 	 * @return bool False if the path is excluded from locking, true otherwise
 	 * @throws \OCP\Lock\LockedException if the path is already locked
 	 */
-	private function changeLock($path, $type) {
+	public function changeLock($path, $type) {
 		$absolutePath = $this->getAbsolutePath($path);
 		if (!$this->shouldLockFile($absolutePath)) {
 			return false;
