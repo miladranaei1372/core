@@ -1169,4 +1169,24 @@ class View extends \Test\TestCase {
 			['', '/testuser/{folder}'],
 		];
 	}
+
+	function pathRelativeToFilesProvider() {
+		return [
+			['x', null],
+			['files', null],
+			['/admin/files', ''],
+			['/admin/files/sub', 'sub'],
+			['/admin/files/sub/', 'sub'],
+			['/admin/files/sub/sub2', 'sub/sub2'],
+			['//admin//files/sub//sub2', 'sub/sub2'],
+		];
+	}
+
+	/**
+	 * @dataProvider pathRelativeToFilesProvider
+	 */
+	public function testGetPathRelativeToFiles($path, $expectedPath) {
+		$view = new \OC\Files\View();
+		$this->assertEquals($expectedPath, $view->getPathRelativeToFiles($path));
+	}
 }

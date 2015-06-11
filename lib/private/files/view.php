@@ -1659,6 +1659,8 @@ class View {
 	}
 
 	/**
+	 * Lock the given path
+	 *
 	 * @param string $path the path of the file to lock, relative to the view
 	 * @param int $type \OCP\Lock\ILockingProvider::LOCK_SHARED or \OCP\Lock\ILockingProvider::LOCK_EXCLUSIVE
 	 * @return bool False if the path is excluded from locking, true otherwise
@@ -1672,17 +1674,27 @@ class View {
 
 		$mount = $this->getMount($path);
 		if ($mount) {
-			$mount->getStorage()->acquireLock(
-				$mount->getInternalPath($absolutePath),
-				$type,
-				$this->lockingProvider
-			);
+			try {
+				$mount->getStorage()->acquireLock(
+					$mount->getInternalPath($absolutePath),
+					$type,
+					$this->lockingProvider
+				);
+			} catch (\OCP\Lock\LockedException $e) {
+				// rethrow with the a human-readable path
+				throw new \OCP\Lock\LockedException(
+					$this->getPathRelativeToFiles($absolutePath),
+					$e
+				);
+			}
 		}
 
 		return true;
 	}
 
 	/**
+	 * Change an existing lock's type
+	 *
 	 * @param string $path the path of the file to lock, relative to the view
 	 * @param int $type \OCP\Lock\ILockingProvider::LOCK_SHARED or \OCP\Lock\ILockingProvider::LOCK_EXCLUSIVE
 	 * @return bool False if the path is excluded from locking, true otherwise
@@ -1696,17 +1708,27 @@ class View {
 
 		$mount = $this->getMount($path);
 		if ($mount) {
-			$mount->getStorage()->changeLock(
-				$mount->getInternalPath($absolutePath),
-				$type,
-				$this->lockingProvider
-			);
+			try {
+				$mount->getStorage()->changeLock(
+					$mount->getInternalPath($absolutePath),
+					$type,
+					$this->lockingProvider
+				);
+			} catch (\OCP\Lock\LockedException $e) {
+				// rethrow with the a human-readable path
+				throw new \OCP\Lock\LockedException(
+					$this->getPathRelativeToFiles($absolutePath),
+					$e
+				);
+			}
 		}
 
 		return true;
 	}
 
 	/**
+	 * Unlock the given path
+	 *
 	 * @param string $path the path of the file to unlock, relative to the view
 	 * @param int $type \OCP\Lock\ILockingProvider::LOCK_SHARED or \OCP\Lock\ILockingProvider::LOCK_EXCLUSIVE
 	 * @return bool False if the path is excluded from locking, true otherwise
@@ -1795,5 +1817,26 @@ class View {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Shortens the given absolute path to be relative to
+	 * "$user/files".
+	 *
+	 * @param string $absolutePath absolute path
+	 *
+	 * @return string|null path relative to "files" with trimmed slashes or null
+	 * if the path was NOT relative to files
+	 *
+	 * @since 8.1.0
+	 */
+	public function getPathRelativeToFiles($absolutePath) {
+		$path = Filesystem::normalizePath($absolutePath);
+		$path = explode('/', trim($path, '/'), 3);
+		// "$user", "files", "path/to/dir"
+		if (!isset($path[2]) || $path[1] !== 'files') {
+			return null;
+		}
+		return $path[2];
 	}
 }
